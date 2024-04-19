@@ -112,6 +112,14 @@ jobs:
       with:
         filters: .github/filters.yaml
 
+  # TODO: semver-checks-actions always compares against the latest release,
+  # so if one breaking commit is merged _every commit_ after it will also be
+  # flagged as breaking.
+  #
+  # There seems to be some discussion about adding a base ref to compare against.
+  # We'll need to wait for that.
+  # https://github.com/obi1kenobi/cargo-semver-checks-action/issues/15
+  # https://github.com/obi1kenobi/cargo-semver-checks-action/issues/64
   semver-checks:
     needs: [changes, pr-title]
     if: ${{ github.event_name != 'merge_group' && needs.changes.outputs.rust == 'true' && needs.pr-title.outputs.breaking == 'false' }}
