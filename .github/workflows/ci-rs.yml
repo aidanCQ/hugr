@@ -37,11 +37,7 @@ jobs:
     - uses: dorny/paths-filter@v3
       id: filter
       with:
-        filters: |
-          rust:
-            - 'hugr/**'
-            - 'Cargo.toml'
-            - 'specification/schema/**'
+        filters: .github/filters.yaml
 
   check:
     needs: changes

@@ -12,19 +12,27 @@ on:
       - unlabeled
   merge_group:
     types: [checks_requested]
+  pull_request:
+    branches:
+      - main
 
 permissions:
   pull-requests: read
 
 jobs:
-  main:
+  pr-title:
     name: Validate Conventional Commit PR title
     runs-on: ubuntu-latest
     # The action does not support running on merge_group events,
     # but if the check succeeds in the PR there is no need to check it again.
-    if: github.event_name == 'pull_request_target'
+    # We just need the green check mark.
+    if: github.event_name != 'merge_group'
+    outputs:
+      # Whether the PR title is marked as a breaking change.
+      breaking: ${{ steps.breaking.outputs.breaking }}
     steps:
       - uses: amannn/action-semantic-pull-request@v5
+        id: conventional-commit
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -70,3 +78,46 @@ jobs:
           # event triggers in your workflow.
           ignoreLabels: |
             ignore-semantic-pull-request
+      # `action-semantic-pull-request` does not parse the title, so it cannot
+      # detect if it is marked as a breaking change.
+      #
+      # Since at this point we know the PR title is a valid conventional commit,
+      # we can use a simple regex that looks for a '!:' sequence. It could be
+      # more complex, but we don't care about false positives.
+      - id: breaking
+        run: |
+          if [[ "${{ github.event.pull_request.title }}" =~ ^.*\!:.*$ ]]; then
+            echo "breaking=true" >> $GITHUB_OUTPUT
+          else
+            echo "breaking=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Check if changes were made to the relevant files.
+  changes:
+    needs: pr-title
+    if: github.event_name != 'merge_group'
+    name: Check for changes in Rust files
+    runs-on: ubuntu-latest
+    # Required permissions
+    permissions:
+      pull-requests: read
+    # Set job outputs to values from filter step
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      python: ${{ steps.filter.outputs.python }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: .github/filters.yaml
+
+  semver-checks:
+    needs: [changes, pr-title]
+    if: ${{ github.event_name != 'merge_group' && needs.changes.outputs.rust == 'true' && needs.pr-title.outputs.breaking == 'false' }}
+    name: Detect semver breaking changes 🦀
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check semver compatibility
+        uses: obi1kenobi/cargo-semver-checks-action@v2
