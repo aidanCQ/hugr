@@ -3,7 +3,7 @@ use std::mem;
 
 use thiserror::Error;
 
-use crate::ops::{NamedOp, OpType};
+use crate::ops::{NamedOp, OpType, Value};
 use crate::utils::collect_array;
 
 use super::{BuildError, Dataflow};
@@ -199,6 +199,11 @@ impl<'a, T: Dataflow + ?Sized> CircuitBuilder<'a, T> {
         Ok(collect_array(outputs))
     }
 
+    /// Adds a constant value to the circuit and loads it into a wire.
+    pub fn add_constant(&mut self, value: impl Into<Value>) -> Wire {
+        self.builder.add_load_value(value)
+    }
+
     /// Add a wire to the list of tracked wires.
     ///
     /// Returns the new unit index.
@@ -237,7 +242,13 @@ mod test {
     use super::*;
     use cool_asserts::assert_matches;
 
-    use crate::utils::test_quantum_extension::{cx_gate, h_gate, measure, q_alloc, q_discard};
+    use crate::builder::{Container, DataflowHugr, FunctionBuilder};
+    use crate::std_extensions::arithmetic::float_ops::FLOAT_OPS_REGISTRY;
+    use crate::std_extensions::arithmetic::float_types::{self, ConstF64};
+    use crate::utils::test_quantum_extension::{
+        cx_gate, h_gate, measure, q_alloc, q_discard, rz_f64,
+    };
+    use crate::HugrView;
     use crate::{
         builder::{
             test::{build_main, NAT, QB},
@@ -250,9 +261,30 @@ mod test {
     };
 
     #[test]
+    fn fail() -> Result<(), Box<dyn std::error::Error>> {
+        // TODO: Drop once the issue is resolved
+        let mut builder = FunctionBuilder::new(
+            "f",
+            FunctionType::new(type_row![QB], type_row![QB])
+                .with_extension_delta(float_types::EXTENSION_ID)
+                .into(),
+        )?;
+        let [q] = builder.input_wires_arr();
+        let angle = builder.add_load_value(ConstF64::new(0.5));
+        let [q] = builder.add_dataflow_op(rz_f64(), [q, angle])?.outputs_arr();
+
+        println!("{}", builder.hugr().mermaid_string());
+        let res = builder.finish_hugr_with_outputs([q], &FLOAT_OPS_REGISTRY);
+        assert_matches!(res, Ok(_));
+        Ok(())
+    }
+
+    #[test]
     fn simple_linear() {
         let build_res = build_main(
-            FunctionType::new(type_row![QB, QB], type_row![QB, QB]).into(),
+            FunctionType::new(type_row![QB, QB], type_row![QB, QB])
+                .with_extension_delta(float_types::EXTENSION_ID)
+                .into(),
             |mut f_build| {
                 let wires = f_build.input_wires().map(Some).collect();
 
@@ -268,11 +300,24 @@ mod test {
                     .append(cx_gate(), [0, 1])?
                     .append(cx_gate(), [1, 0])?;
 
+                let angle = linear.add_constant(ConstF64::new(0.5));
+                linear.append_and_consume(
+                    rz_f64(),
+                    [CircuitUnit::Linear(0), CircuitUnit::Wire(angle)],
+                )?;
+
                 let outs = linear.finish();
                 f_build.finish_with_outputs(outs)
             },
         );
 
+        match &build_res {
+            Ok(_) => {}
+            Err(e) => {
+                println!("{}", e);
+            }
+        }
+        // TODO: This fails
         assert_matches!(build_res, Ok(_));
     }
 
