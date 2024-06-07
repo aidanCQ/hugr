@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1 (2024-06-07)
+
+### Refactor
+
+- Move binary to hugr-cli ([#1134](https://github.com/CQCL/hugr/pull/1134))
+
+
 ## 0.5.0 (2024-05-29)
 
 ### Bug Fixes
