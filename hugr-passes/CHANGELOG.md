@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 (2024-07-05)
+
+### Refactor
+
+- [**breaking**] Remove `Value::Tuple` ([#1255](https://github.com/CQCL/hugr/pull/1255))
+
+
 ## 0.3.0 (2024-06-28)
 
 ### Features

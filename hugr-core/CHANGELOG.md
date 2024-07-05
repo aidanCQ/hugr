@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0 (2024-07-05)
+
+### Refactor
+
+- [**breaking**] Remove `Value::Tuple` ([#1255](https://github.com/CQCL/hugr/pull/1255))
+- [**breaking**] Rename `HugrView` function type methods + simplify behaviour ([#1265](https://github.com/CQCL/hugr/pull/1265))
+
+### Styling
+
+- Change "serialise" etc to "serialize" etc. ([#1251](https://github.com/CQCL/hugr/pull/1251))
+
+### Testing
+
+- Add a test for [#1257](https://github.com/CQCL/hugr/pull/1257) ([#1260](https://github.com/CQCL/hugr/pull/1260))
+
+
 ## 0.3.0 (2024-06-28)
 
 ### Bug Fixes
